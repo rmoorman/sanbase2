@@ -86,8 +86,49 @@ defmodule Sanbase.Clickhouse.EthTransfers do
     end)
   end
 
+  @spec eth_2_staking_transactions(%DateTime{}, %DateTime{}, integer) ::
+          {:ok, nil} | {:ok, list(t)} | {:error, String.t()}
+  def eth_2_staking_transactions(from, to, limit) do
+    {query, args} = eth_2_staking_transactions_query(from, to, limit)
+
+    ClickhouseRepo.query_transform(query, args, fn
+      [timestamp, address, trx_hash, trx_value] ->
+        %{
+          datetime: DateTime.from_unix!(timestamp),
+          from_address: address,
+          to_address: '0x',
+          trx_hash: '0x',
+          trx_value: trx_value
+        }
+    end)
+  end
+
   # Private functions
 
+  defp eth_2_staking_transactions_query(from, to) do
+    query = """
+    SELECT
+      toUnixTimestamp(dt),
+      from,
+      to,
+      transactionHash,
+      value / #{@eth_decimals}
+    FROM eth2_staking_transfers_mv
+    PREWHERE
+      dt >= toDateTime(?1) AND
+      dt <= toDateTime(?2) AND
+      type = 'call'
+    ORDER BY value DESC
+    """
+
+    args = [
+      from |> DateTime.to_unix(),
+      to |> DateTime.to_unix(),
+    ]
+
+    {query, args}
+  end
+  
   defp wallet_transactions_query(wallets, from, to, limit, :out) do
     query = """
     SELECT
