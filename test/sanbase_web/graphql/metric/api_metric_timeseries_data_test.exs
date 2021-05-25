@@ -189,7 +189,7 @@ defmodule SanbaseWeb.Graphql.ApiMetricTimeseriesDataTest do
     %{conn: conn, slug: slug, from: from, to: to, interval: interval} = context
     aggregation = :avg
 
-    metrics = Metric.available_timeseries_metrics() |> Enum.shuffle() |> Enum.take(50)
+    metrics = Metric.available_timeseries_metrics() |> Enum.shuffle() |> Enum.take(100)
 
     Sanbase.Mock.prepare_mock2(
       &Metric.timeseries_data/6,
@@ -359,7 +359,7 @@ defmodule SanbaseWeb.Graphql.ApiMetricTimeseriesDataTest do
     social_metric_error =
       get_timeseries_metric(
         context.conn,
-        "social_volume_telegram",
+        "twitter_followers",
         %{slug: slug},
         from,
         to,

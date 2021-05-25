@@ -21,25 +21,11 @@ config :postgrex, :json_library, Jason
 
 config :sanbase, Sanbase, env: Mix.env()
 
-config :ueberauth, Ueberauth,
-  providers: [
-    google: {Ueberauth.Strategy.Google, []},
-    twitter: {Ueberauth.Strategy.Twitter, []}
-  ]
-
-config :ueberauth, Ueberauth.Strategy.Google.OAuth,
-  client_id: {System, :get_env, ["GOOGLE_OAUTH_CLIENT_ID"]},
-  client_secret: {System, :get_env, ["GOOGLE_OAUTH_CLIENT_SECRET"]}
-
-config :ueberauth, Ueberauth.Strategy.Twitter.OAuth,
-  consumer_key: {System, :get_env, ["TWITTER_OAUTH_CONSUMER_KEY"]},
-  consumer_secret: {System, :get_env, ["TWITTER_OAUTH_CONSUMER_SECRET"]}
-
 config :sanbase, SanbaseWeb.Plug.BasicAuth,
   username: {:system, "ADMIN_BASIC_AUTH_USERNAME", "admin"},
   password: {:system, "ADMIN_BASIC_AUTH_PASSWORD", "admin"}
 
-config :sanbase, Sanbase.Clickhouse.Erc20Transfers,
+config :sanbase, Sanbase.Transfers.Erc20Transfers,
   dt_ordered_table: {:system, "DT_ORDERED_ERC20_TRANFERS_TABLE", "erc20_transfers_new"},
   address_ordered_table: {:system, "ADDRESS_ORDERED_ERC20_TRANSFERS_TABLE", "erc20_transfers"}
 
@@ -84,7 +70,7 @@ config :sanbase, Sanbase.Accounts.Hmac, secret_key: {:system, "APIKEY_HMAC_SECRE
 config :sanbase, SanbaseWeb.Endpoint,
   http: [protocol_options: [max_request_line_length: 16_384, max_header_value_length: 8192]],
   url: [host: "localhost"],
-  secret_key_base: "Vq7Rfo0T4EfiLX2/ryYal3O0l9ebBNhyh58cfWdTAUHxEJGu2p9u1WTQ31Ki4Phj",
+  secret_key_base: "not_secret_Vq7Rfo0T4EfiLX2/ryYal3O0l9ebBNhyh58cfWdTAUHxEJGu2p9u1WTQ31Ki4Phj",
   render_errors: [view: SanbaseWeb.ErrorView, accepts: ~w(json)],
   # should be removed after app.santiment.net migration
   website_url: {:system, "WEBSITE_URL", "http://localhost:4000"},
@@ -92,7 +78,7 @@ config :sanbase, SanbaseWeb.Endpoint,
   frontend_url: {:system, "FRONTEND_URL", "http://localhost:4000"},
   insights_url: {:system, "INSIGHTS_URL", "https://insights.santiment.net"},
   pubsub_server: Sanbase.PubSub,
-  live_view: [signing_salt: "FkOgrxfW5aw3HjLOoxCVMvB0py5+Uk5+"]
+  live_view: [signing_salt: "not_secret_FkOgrxfW5aw3HjLOoxCVMvB0py5+Uk5+"]
 
 # Do not log SASL crash reports
 config :sasl, sasl_error_logger: false
@@ -116,15 +102,19 @@ config :earmark,
   mapper: &Enum.map/2
 
 config :hammer,
-  backend: {Hammer.Backend.ETS, [expiry_ms: 60_000 * 60 * 4, cleanup_interval_ms: 60_000 * 10]}
+  backend: {
+    Hammer.Backend.ETS,
+    [
+      expiry_ms: 60_000 * 60 * 4,
+      cleanup_interval_ms: 60_000 * 10
+    ]
+  }
 
 config :xain, :after_callback, {Phoenix.HTML, :raw}
 
-config :tesla, adapter: Tesla.Adapter.Hackney, recv_timeout: 30_000
-
-config :sanbase, SanbaseWeb.Guardian,
-  issuer: "santiment",
-  secret_key: {SanbaseWeb.Guardian, :get_config, [:secret_key_base]}
+config :tesla,
+  adapter: Tesla.Adapter.Hackney,
+  recv_timeout: 30_000
 
 config :sanbase, Sanbase.InternalServices.Ethauth,
   url: {:system, "ETHAUTH_URL"},
@@ -208,6 +198,7 @@ config :sanbase, Sanbase.GrafanaApi,
   grafana_pass: {:system, "GRAFANA_PASS"}
 
 config :sanbase, Sanbase.Intercom, api_key: {:system, "INTERCOM_API_KEY"}
+
 config :sanbase, Sanbase.Email.Mailchimp, api_key: {:system, "MAILCHIMP_API_KEY"}
 
 config :sanbase, Sanbase.Promoters.FirstPromoterApi,
@@ -217,11 +208,11 @@ config :sanbase, Sanbase.Promoters.FirstPromoterApi,
 config :sanbase, Sanbase.WalletHunters.Contract, rinkeby_url: {:system, "RINKEBY_URL"}
 
 # Import configs
+import_config "ueberauth_config.exs"
 import_config "ex_admin_config.exs"
 import_config "influxdb_config.exs"
 import_config "scrapers_config.exs"
 import_config "notifications_config.exs"
-import_config "prometheus_config.exs"
 import_config "stripe_config.exs"
 import_config "scheduler_config.exs"
 

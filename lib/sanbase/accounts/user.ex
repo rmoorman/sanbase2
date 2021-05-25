@@ -89,6 +89,7 @@ defmodule Sanbase.Accounts.User do
     has_many(:triggers, Sanbase.Alert.UserTrigger, on_delete: :delete_all)
     has_many(:chart_configurations, Sanbase.Chart.Configuration, on_delete: :delete_all)
     has_many(:user_attributes, Sanbase.Intercom.UserAttributes, on_delete: :delete_all)
+    has_many(:user_events, Sanbase.Intercom.UserEvent, on_delete: :delete_all)
 
     has_one(:user_settings, UserSettings, on_delete: :delete_all)
 
@@ -207,12 +208,29 @@ defmodule Sanbase.Accounts.User do
   end
 
   def by_email(email) when is_binary(email) do
-    Sanbase.Repo.get_by(User, email: email)
+    case Sanbase.Repo.get_by(User, email: email) do
+      nil -> {:error, "Cannot fetch user with email #{email}"}
+      %__MODULE__{} = user -> {:ok, user}
+    end
+  end
+
+  def by_username(username) when is_binary(username) do
+    case Sanbase.Repo.get_by(User, username: username) do
+      nil -> {:error, "Cannot fetch user with username #{username}"}
+      %__MODULE__{} = user -> {:ok, user}
+    end
+  end
+
+  def by_stripe_customer_id(stripe_customer_id) do
+    case Repo.get_by(User, stripe_customer_id: stripe_customer_id) do
+      nil -> {:error, "Cannot fetch user with stripe_customer_id #{stripe_customer_id}"}
+      %__MODULE__{} = user -> {:ok, user}
+    end
   end
 
   def by_selector(%{id: id}), do: by_id(Sanbase.Math.to_integer(id))
   def by_selector(%{email: email}), do: by_email(email)
-  def by_selector(%{username: username}), do: Repo.get_by(__MODULE__, username: username)
+  def by_selector(%{username: username}), do: by_username(username)
 
   def update_field(%__MODULE__{} = user, field, value) do
     case Map.fetch!(user, field) == value do

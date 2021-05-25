@@ -33,32 +33,95 @@ defmodule SanbaseWeb.StripeWebhookTest do
     {:ok, user: user}
   end
 
-  describe "invoice.payment_succeeded event" do
-    test "when event with this id doesn't exist - create and process event successfully",
+  describe "charge.failed event" do
+    test "handle charged.failed event",
          context do
-      {:ok, %Stripe.Subscription{id: _stripe_id}} =
-        StripeApiTestResponse.retrieve_subscription_resp()
+      {:ok, %Stripe.Subscription{id: stripe_id}} =
+        StripeApiTestResponse.retrieve_subscription_resp(stripe_id: @stripe_id)
+
+      insert(:subscription_essential, user: context.user, stripe_id: stripe_id)
+
+      payload = charge_failed_json()
+      self = self()
+      ref = make_ref()
+
+      Sanbase.Mock.prepare_mock(
+        Sanbase.Notifications.Discord,
+        :send_notification,
+        fn _, _, payload ->
+          send(self, {ref, payload})
+          :ok
+        end
+      )
+      |> Sanbase.Mock.run_with_mocks(fn ->
+        response = post_stripe_webhook(:charge_failed)
+
+        assert_receive({_, {:ok, %StripeEvent{is_processed: true}}}, 1000)
+
+        assert StripeEvent |> Repo.all() |> hd() |> Map.get(:event_id) ==
+                 Jason.decode!(payload) |> Map.get("id")
+
+        assert response.status == 200
+
+        assert_receive({^ref, msg}, 1000)
+
+        assert msg =~ "⛔ Failed card charge for $529"
+
+        assert msg =~
+                 "Details: Your card was declined. The bank did not return any further details with this decline."
+
+        assert msg =~ "Event: https://dashboard.stripe.com/events/evt_1Eud0qCA0hGU8IEVdOgcTrft"
+      end)
+    end
+  end
+
+  describe "invoice.payment_succeeded event" do
+    test "when event with id that doesn't exist - create and process event successfully",
+         context do
+      {:ok, %Stripe.Subscription{id: stripe_id}} =
+        StripeApiTestResponse.retrieve_subscription_resp(stripe_id: @stripe_id)
 
       insert(:subscription_essential,
         user: context.user,
-        stripe_id: @stripe_id
+        stripe_id: stripe_id
       )
 
       payload = payment_succeded_json()
-      response = post_stripe_webhook(:payment_succeded)
+      self = self()
+      ref = make_ref()
 
-      assert_receive({_, {:ok, %StripeEvent{is_processed: true}}})
+      Sanbase.Mock.prepare_mock(
+        Sanbase.Notifications.Discord,
+        :send_notification,
+        fn _, _, payload ->
+          send(self, {ref, payload})
+          :ok
+        end
+      )
+      |> Sanbase.Mock.run_with_mocks(fn ->
+        response = post_stripe_webhook(:payment_succeded)
 
-      assert StripeEvent |> Repo.all() |> hd() |> Map.get(:event_id) ==
-               Jason.decode!(payload) |> Map.get("id")
+        assert_receive({_, {:ok, %StripeEvent{is_processed: true}}}, 1000)
 
-      assert response.status == 200
+        assert StripeEvent |> Repo.all() |> hd() |> Map.get(:event_id) ==
+                 Jason.decode!(payload) |> Map.get("id")
+
+        assert response.status == 200
+
+        assert_receive({^ref, msg}, 1000)
+
+        assert msg =~ "🎉 New payment for $95 for Neuro by Santiment / ESSENTIAL by"
+        assert msg =~ "@santiment.net"
+        assert msg =~ "Coupon name: TestSanCoupon"
+        assert msg =~ "Coupon id: CVXvPaMG"
+        assert msg =~ "Coupon percent off: 20"
+      end)
     end
 
-    test "when event with this id exists - return 200 and don't process",
-         context do
-      payload = payment_succeded_json()
-      StripeEvent.create(Jason.decode!(payload))
+    test "when event with this id exists - return 200 and don't process", context do
+      payment_succeded_json()
+      |> Jason.decode!()
+      |> StripeEvent.create()
 
       {:ok, %Stripe.Subscription{id: stripe_id}} =
         StripeApiTestResponse.retrieve_subscription_resp()
@@ -70,7 +133,7 @@ defmodule SanbaseWeb.StripeWebhookTest do
 
       response = post_stripe_webhook(:payment_succeded)
 
-      refute_receive({_, {:ok, %StripeEvent{is_processed: true}}})
+      refute_receive({_, {:ok, %StripeEvent{is_processed: true}}}, 1000)
       assert response.status == 200
     end
 
@@ -81,10 +144,13 @@ defmodule SanbaseWeb.StripeWebhookTest do
         response =
           build_conn()
           |> put_req_header("content-type", "application/json")
-          |> put_req_header("stripe-signature", signature_header(payload, "wrong secret"))
+          |> put_req_header(
+            "stripe-signature",
+            signature_header(payload, "wrong secret")
+          )
           |> post("/stripe_webhook", payload)
 
-        refute_receive({_, {:ok, %StripeEvent{is_processed: true}}})
+        refute_receive({_, {:ok, %StripeEvent{is_processed: true}}}, 1000)
         refute response.status == 200
         assert response.resp_body =~ "Request signature not verified"
       end)
@@ -102,7 +168,7 @@ defmodule SanbaseWeb.StripeWebhookTest do
         capture_log(fn ->
           response = post_stripe_webhook(:payment_succeded)
 
-          refute_receive({_, {:ok, %StripeEvent{is_processed: true}}})
+          refute_receive({_, {:ok, %StripeEvent{is_processed: true}}}, 1000)
           assert response.status == 200
         end)
       end
@@ -111,17 +177,18 @@ defmodule SanbaseWeb.StripeWebhookTest do
 
   describe "customer.subscription.created event" do
     test "successfully create subscription" do
-      {:ok,
-       %Stripe.Subscription{
-         customer: stripe_customer_id
-       }} = StripeApiTestResponse.retrieve_subscription_resp()
+      {:ok, %Stripe.Subscription{customer: stripe_customer_id}} =
+        StripeApiTestResponse.retrieve_subscription_resp()
 
       user = insert(:user, stripe_customer_id: stripe_customer_id)
       response = post_stripe_webhook(:subscription_created)
 
-      assert_receive({_, {:ok, %StripeEvent{is_processed: true}}})
+      assert_receive({_, {:ok, %StripeEvent{is_processed: true}}}, 1000)
       assert response.status == 200
-      assert from(s in Subscription, where: s.user_id == ^user.id) |> Repo.all() |> length() == 1
+
+      assert from(s in Subscription, where: s.user_id == ^user.id)
+             |> Repo.all()
+             |> length() == 1
     end
 
     test "when there is existing subscription with the same stripe_id - event is processed succesfully, new subscription is not created" do
@@ -139,9 +206,12 @@ defmodule SanbaseWeb.StripeWebhookTest do
 
       response = post_stripe_webhook(:subscription_created)
 
-      assert_receive({_, {:ok, %StripeEvent{is_processed: true}}})
+      assert_receive({_, {:ok, %StripeEvent{is_processed: true}}}, 1000)
       assert response.status == 200
-      assert from(s in Subscription, where: s.user_id == ^user.id) |> Repo.all() |> length() == 1
+
+      assert from(s in Subscription, where: s.user_id == ^user.id)
+             |> Repo.all()
+             |> length() == 1
     end
 
     test "when customer does not exist - subscription is not created" do
@@ -152,12 +222,14 @@ defmodule SanbaseWeb.StripeWebhookTest do
       capture_log(fn ->
         response = post_stripe_webhook(:subscription_created)
 
-        assert_receive({_, {:error, error_msg}})
+        assert_receive({_, {:error, error_msg}}, 1000)
         assert error_msg =~ expected_error_msg
         assert response.status == 200
       end) =~ expected_error_msg
 
-      assert from(s in Subscription, where: s.user_id == ^user.id) |> Repo.all() |> length() == 0
+      assert from(s in Subscription, where: s.user_id == ^user.id)
+             |> Repo.all()
+             |> length() == 0
     end
 
     test "when plan does not exist - subscription is not created" do
@@ -179,12 +251,14 @@ defmodule SanbaseWeb.StripeWebhookTest do
       capture_log(fn ->
         response = post_stripe_webhook(:subscription_created)
 
-        assert_receive({_, {:error, error_msg}})
+        assert_receive({_, {:error, error_msg}}, 1000)
         assert error_msg =~ expected_error_msg
         assert response.status == 200
       end) =~ expected_error_msg
 
-      assert from(s in Subscription, where: s.user_id == ^user.id) |> Repo.all() |> length() == 0
+      assert from(s in Subscription, where: s.user_id == ^user.id)
+             |> Repo.all()
+             |> length() == 0
     end
   end
 
@@ -196,6 +270,12 @@ defmodule SanbaseWeb.StripeWebhookTest do
 
         :subscription_created ->
           subscription_created_json()
+
+        :payment_failed ->
+          payment_failed_json()
+
+        :charge_failed ->
+          charge_failed_json()
       end
 
     build_conn()
@@ -270,7 +350,7 @@ defmodule SanbaseWeb.StripeWebhookTest do
               "max_redemptions": null,
               "metadata": {
               },
-              "name": null,
+              "name": "Test Coupon",
               "percent_off": 20,
               "redeem_by": null,
               "times_redeemed": 1,
@@ -365,6 +445,238 @@ defmodule SanbaseWeb.StripeWebhookTest do
     """
   end
 
+  defp charge_failed_json do
+    """
+    {
+      "created": 1326853478,
+      "livemode": false,
+      "id": "evt_1Eud0qCA0hGU8IEVdOgcTrft",
+      "type": "charge.failed",
+      "object": "event",
+      "request": null,
+      "pending_webhooks": 1,
+      "api_version": "2017-08-15",
+      "data": {
+        "object": {
+          "id": "ch_1I",
+          "object": "charge",
+          "amount": 52900,
+          "amount_captured": 0,
+          "amount_refunded": 0,
+          "application": null,
+          "application_fee": null,
+          "application_fee_amount": null,
+          "balance_transaction": null,
+          "billing_details": {
+            "address": {
+              "city": null,
+              "country": null,
+              "line1": null,
+              "line2": null,
+              "postal_code": null,
+              "state": null
+            },
+            "email": null,
+            "name": null,
+            "phone": null
+          },
+          "calculated_statement_descriptor": "SANTIMENT",
+          "captured": false,
+          "created": 1620980672,
+          "currency": "usd",
+          "customer": "cus_JTd44randstuff",
+          "description": "Subscription creation",
+          "destination": null,
+          "dispute": null,
+          "disputed": false,
+          "failure_code": "card_declined",
+          "failure_message": "Your card was declined.",
+          "fraud_details": {
+          },
+          "invoice": "in_1IqfqYCA0hGU8IEVShG79rS5",
+          "livemode": false,
+          "metadata": {
+          },
+          "on_behalf_of": null,
+          "order": null,
+          "outcome": {
+            "network_status": "declined_by_network",
+            "reason": "generic_decline",
+            "risk_level": "normal",
+            "risk_score": 34,
+            "seller_message": "The bank did not return any further details with this decline.",
+            "type": "issuer_declined"
+          },
+          "paid": false,
+          "payment_intent": "pi_1IqfqYCA0hGU8IEVrandstuff",
+          "payment_method": "card_1IqwJ6CA0hGU8Irandstuff",
+          "payment_method_details": {
+            "card": {
+              "brand": "visa",
+              "checks": {
+                "address_line1_check": null,
+                "address_postal_code_check": null,
+                "cvc_check": "pass"
+              },
+              "country": "US",
+              "exp_month": 1,
+              "exp_year": 2022,
+              "fingerprint": "vQb5YIkrandstuff",
+              "funding": "credit",
+              "installments": null,
+              "last4": "0341",
+              "network": "visa",
+              "three_d_secure": null,
+              "wallet": null
+            },
+            "type": "card"
+          },
+          "receipt_email": "test@gsantiment.net",
+          "receipt_number": null,
+          "receipt_url": null,
+          "refunded": false,
+          "refunds": {
+            "object": "list",
+            "data": [
+            ],
+            "has_more": false,
+            "total_count": 0,
+            "url": "/v1/charges/ch_1IqwJwCA0hGrandstuff/refunds"
+          },
+          "review": null,
+          "shipping": null,
+          "source": {
+            "id": "card_1IqwJ6CA0hrandstuff",
+            "object": "card",
+            "address_city": null,
+            "address_country": null,
+            "address_line1": null,
+            "address_line1_check": null,
+            "address_line2": null,
+            "address_state": null,
+            "address_zip": null,
+            "address_zip_check": null,
+            "brand": "Visa",
+            "country": "US",
+            "customer": "cus_JTd44gNrandstuff",
+            "cvc_check": "pass",
+            "dynamic_last4": null,
+            "exp_month": 1,
+            "exp_year": 2022,
+            "fingerprint": "vQb5YIkbranfstuff",
+            "funding": "credit",
+            "last4": "0341",
+            "metadata": {
+            },
+            "name": null,
+            "tokenization_method": null
+          },
+          "source_transfer": null,
+          "statement_descriptor": null,
+          "statement_descriptor_suffix": null,
+          "status": "failed",
+          "transfer_data": null,
+          "transfer_group": null
+        }
+      }
+    }
+    """
+  end
+
+  defp payment_failed_json do
+    """
+    {
+      "created": 1326853478,
+      "livemode": false,
+      "id": "evt_1Eud0qCA0hGU8IEVdOgcTrft",
+      "type": "invoice.payment_failed",
+      "object": "event",
+      "request": null,
+      "pending_webhooks": 1,
+      "api_version": "2017-08-15",
+      "data": {
+        "object": {
+          "id": "evt_1alsdljasl921j",
+          "object": "invoice",
+          "amount": 1000,
+          "amount_due": 0,
+          "application_fee": null,
+          "attempt_count": 0,
+          "attempted": true,
+          "billing": "charge_automatically",
+          "charge": null,
+          "closed": false,
+          "currency": "usd",
+          "customer": "cus_00000000000000",
+          "date": 1505770975,
+          "description": null,
+          "discount": null,
+          "ending_balance": null,
+          "forgiven": false,
+          "lines": {
+            "data": [
+              {
+                "id": "sub_BQNmhjeDUv5aw0",
+                "object": "line_item",
+                "amount": 999,
+                "currency": "usd",
+                "description": null,
+                "discountable": true,
+                "livemode": true,
+                "metadata": {
+                },
+                "period": {
+                  "start": 1508362975,
+                  "end": 1511041375
+                },
+                "plan": {
+                  "id": "vwv3ww",
+                  "object": "plan",
+                  "amount": 19900,
+                  "created": 1407112740,
+                  "currency": "usd",
+                  "interval": "month",
+                  "interval_count": 1,
+                  "livemode": false,
+                  "metadata": {
+                  },
+                  "name": "Analytics",
+                  "statement_descriptor": null,
+                  "trial_period_days": null
+                },
+                "proration": false,
+                "quantity": 1,
+                "subscription": "#{@stripe_id}",
+                "subscription_item": "si_1B3X112eZvKYlo2CIQmgTwPZ",
+                "type": "subscription"
+              }
+            ],
+            "total_count": 1,
+            "object": "list",
+            "url": "/v1/invoices/in_BQNmR26copjyyy/lines"
+          },
+          "livemode": false,
+          "metadata": {
+          },
+          "next_payment_attempt": 1505774575,
+          "number": "17d12e06df-0001",
+          "paid": false,
+          "period_end": 1505770975,
+          "period_start": 1505770975,
+          "receipt_number": null,
+          "starting_balance": 0,
+          "statement_descriptor": null,
+          "subscription": "#{@stripe_id}",
+          "subtotal": 0,
+          "tax": null,
+          "tax_percent": null,
+          "webhooks_delivered_at": null
+        }
+      }
+    }
+    """
+  end
+
   defp payment_succeded_json do
     """
     {
@@ -421,7 +733,7 @@ defmodule SanbaseWeb.StripeWebhookTest do
               "max_redemptions": null,
               "metadata": {
               },
-              "name": null,
+              "name": "TestSanCoupon",
               "percent_off": 20,
               "redeem_by": null,
               "times_redeemed": 1,

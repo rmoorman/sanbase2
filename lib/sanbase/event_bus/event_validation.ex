@@ -1,6 +1,8 @@
 defmodule Sanbase.EventBus.EventValidation do
   @moduledoc """
-
+  When Sanbase.EventBus.notify/1 is called, the event is emitted only if it
+  passes the validation in this module. Every event_type must have a function
+  header definition that pattern matches on it and validates its fields
   """
 
   #############################################################################
@@ -69,7 +71,6 @@ defmodule Sanbase.EventBus.EventValidation do
   #############################################################################
   ## Apikey Events
   #############################################################################
-
   def valid?(%{
         event_type: event_type,
         user_id: user_id,
@@ -110,7 +111,13 @@ defmodule Sanbase.EventBus.EventValidation do
           stripe_subscription_id: _stripe_subscription_id
         } = event
       )
-      when event_type in [:create_subscription, :update_subscription],
+      when event_type in [
+             :create_subscription,
+             :update_subscription,
+             :delete_subscription,
+             :renew_subscription,
+             :cancel_subscription
+           ],
       do:
         valid_integer_id?(subscription_id) and valid_integer_id?(user_id) and
           valid_subscription_stripe_id?(event)
@@ -118,11 +125,9 @@ defmodule Sanbase.EventBus.EventValidation do
   #############################################################################
   ## Payment Events
   #############################################################################
-  def valid?(%{event_type: :payment_success, user_id: user_id, stripe_id: stripe_id}),
-    do: valid_integer_id?(user_id) and valid_string_id?(stripe_id)
-
-  def valid?(%{event_type: :payment_fail, user_id: user_id, stripe_id: stripe_id}),
-    do: valid_integer_id?(user_id) and valid_string_id?(stripe_id)
+  def valid?(%{event_type: event_type, user_id: user_id, stripe_event_id: stripe_event_id})
+      when event_type in [:payment_success, :payment_fail, :charge_fail],
+      do: (is_nil(user_id) or valid_integer_id?(user_id)) and valid_string_id?(stripe_event_id)
 
   def valid?(%{
         event_type: :new_subscription,
@@ -164,7 +169,6 @@ defmodule Sanbase.EventBus.EventValidation do
   #############################################################################
   ## Promoter Events
   #############################################################################
-
   def valid?(%{
         event_type: :create_promoter,
         user_id: user_id,

@@ -3,7 +3,7 @@ defmodule SanbaseWeb.Graphql.WalletHuntersApiTest do
 
   import Sanbase.Factory
   import SanbaseWeb.Graphql.TestHelpers
-  alias Sanbase.WalletHunters.{RelayQuota, RelayerApi}
+  alias Sanbase.WalletHunters.{RelayQuota, RelayerApi, Contract}
 
   setup do
     user = insert(:user)
@@ -40,10 +40,21 @@ defmodule SanbaseWeb.Graphql.WalletHuntersApiTest do
           "0xe49d1f4cc653a6a3ce249ab2a4bebfe542f10e31d17a38afd1037cb07068340e61d50cd0d0b412ad28f11a02e2361d2fe3fb996bdb0e78b584e26683813322461b"
       }
 
-      {:ok, create_args: create_args, transaction_id: "0x1"}
+      create_without_relay_args = %{
+        text: "t1",
+        title: "t2",
+        hunter_address: "0xcb8c7409fe98a396f32d6cff4736bedc7b60008c",
+        proposed_address: "0xcb8c7409fe98a396f32d6cff4736bedc7b60008c",
+        transaction_id: "0x1"
+      }
+
+      {:ok,
+       create_args: create_args,
+       create_without_relay_args: create_without_relay_args,
+       transaction_id: "0x1"}
     end
 
-    test "when everything is ok", context do
+    test "with relay when everything is ok", context do
       args = context.create_args
 
       Sanbase.Mock.prepare_mock2(&RelayQuota.can_relay?/1, true)
@@ -56,9 +67,41 @@ defmodule SanbaseWeb.Graphql.WalletHuntersApiTest do
         &Sanbase.ClickhouseRepo.query/2,
         {:ok, %{rows: labels_rows()}}
       )
+      |> Sanbase.Mock.prepare_mock2(&Contract.get_trx_by_id/1, {:ok, %{"blockNumber" => "0x1"}})
+      |> Sanbase.Mock.prepare_mock2(&Contract.get_trx_receipt_by_id/1, {:ok, %{"logs" => []}})
       |> Sanbase.Mock.run_with_mocks(fn ->
         result =
           execute_mutation(context.conn, create_proposal_mutation(args), "createWhProposal")
+
+        assert result == %{
+                 "hunterAddress" => args.hunter_address,
+                 "proposalId" => nil,
+                 "proposedAddress" => args.proposed_address,
+                 "text" => args.text,
+                 "title" => args.title,
+                 "transactionId" => context.transaction_id,
+                 "transactionStatus" => "pending",
+                 "user" => %{"email" => context.user.email}
+               }
+      end)
+    end
+
+    test "without relay when everything is ok", context do
+      args = context.create_without_relay_args
+
+      Sanbase.Mock.prepare_mock2(
+        &Sanbase.ClickhouseRepo.query/2,
+        {:ok, %{rows: labels_rows()}}
+      )
+      |> Sanbase.Mock.prepare_mock2(&Contract.get_trx_by_id/1, {:ok, %{"blockNumber" => "0x1"}})
+      |> Sanbase.Mock.prepare_mock2(&Contract.get_trx_receipt_by_id/1, {:ok, %{"logs" => []}})
+      |> Sanbase.Mock.run_with_mocks(fn ->
+        result =
+          execute_mutation(
+            context.conn,
+            create_proposal_withut_relay_mutation(args),
+            "createWhProposal"
+          )
 
         assert result == %{
                  "hunterAddress" => args.hunter_address,
@@ -216,6 +259,31 @@ defmodule SanbaseWeb.Graphql.WalletHuntersApiTest do
     """
   end
 
+  defp create_proposal_withut_relay_mutation(args) do
+    """
+    mutation {
+      createWhProposal(
+        text: "#{args.text}",
+        title:"#{args.title}",
+        hunterAddress:"0xcb8c7409fe98a396f32d6cff4736bedc7b60008c",
+        proposedAddress:"0xcb8c7409fe98a396f32d6cff4736bedc7b60008c",
+        transactionId: "#{args.transaction_id}"
+      ) {
+        proposalId
+        user {
+          email
+        }
+        title
+        text
+        hunterAddress
+        proposedAddress
+        transactionId
+        transactionStatus
+      }
+    }
+    """
+  end
+
   defp wallet_hunters_query(selector \\ %{}) do
     selector = map_to_input_object_str(selector, map_as_input_object: true)
 
@@ -266,11 +334,6 @@ defmodule SanbaseWeb.Graphql.WalletHuntersApiTest do
       ["0x26caae548b7cecf98da12ccaaa633d6d140447aa", "DEX Trader", "{\"owner\": \"\"}"],
       ["0x11111109fe98a396f32d6cff4736bedc7b60008c", "DEX Trader2", "{\"owner\": \"\"}"]
     ]
-  end
-
-  defp proposal_resp do
-    {:ok,
-     "0x0000000000000000000000000000000000000000000000000000000000000001000000000000000000000000cb8c7409fe98a396f32d6cff4736bedc7b60008c000000000000000000000000000000000000000000000005f68e8131ecf800000000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000605b005700000000000000000000000000000000000000000000000000000000605c51d70000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000007d00000000000000000000000000000000000000000000000008ac7230489e80000"}
   end
 
   defp all_proposals_resp do
