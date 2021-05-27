@@ -45,15 +45,16 @@ defmodule Sanbase.Billing.Plan.Restrictions do
   @spec get_all(atom(), non_neg_integer()) :: list(restriction)
   def get_all(plan, product_id) do
     metrics = Sanbase.Metric.available_metrics() |> Enum.map(&{:metric, &1})
+    signals = Sanbase.Signal.available_signals() |> Enum.map(&{:signal, &1})
 
     queries =
       Sanbase.Model.Project.AvailableQueries.all_atom_names()
       |> Enum.map(&{:query, &1})
 
-    # elements are {:metric, <string>} or {:query, <atom>}
+    # elements are {:metric, <string>} or {:query, <atom>} or {:signal, <string>}
     result =
-      (queries ++ metrics)
-      |> Enum.map(fn metric_or_query -> get(metric_or_query, plan, product_id) end)
+      (queries ++ metrics ++ signals)
+      |> Enum.map(fn query_or_argument -> get(query_or_argument, plan, product_id) end)
 
     (get_extra_queries(plan, product_id) ++ result)
     |> Enum.uniq_by(& &1.name)
