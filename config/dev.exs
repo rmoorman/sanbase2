@@ -54,7 +54,7 @@ config :sanbase, Sanbase.Repo,
 # These values are default values that are used locally when developing.
 config :sanbase, Sanbase.ClickhouseRepo,
   adapter: ClickhouseEcto,
-  loggers: [Ecto.LogEntry, Sanbase.Prometheus.EctoInstrumenter],
+  loggers: [Ecto.LogEntry],
   hostname: "clickhouse",
   port: 8123,
   database: "default",

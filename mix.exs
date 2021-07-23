@@ -48,7 +48,6 @@ defmodule Sanbase.Mixfile do
 
   defp deps() do
     [
-      {:absinthe_metrics, "~> 1.1"},
       {:absinthe_phoenix, "~> 2.0"},
       {:absinthe_plug, "~> 1.5"},
       {:absinthe, "~> 1.5"},
@@ -127,9 +126,6 @@ defmodule Sanbase.Mixfile do
       {:phoenix, "~> 1.5.3"},
       {:plug_cowboy, "~> 2.0"},
       {:postgrex, "~> 0.15.0", override: true},
-      {:prometheus_ecto, "~> 1.3"},
-      {:prometheus_ex, "~> 3.0", override: true},
-      {:prometheus_plugs, "~> 1.0"},
       {:quantum, "~> 3.0"},
       {:remote_ip, "~> 0.1"},
       {:rexbug, ">= 1.0.0"},

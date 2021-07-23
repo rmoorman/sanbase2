@@ -3,9 +3,7 @@ defmodule Sanbase.Application.Web do
   require Logger
 
   def init() do
-    # API metrics
-    SanbaseWeb.Graphql.Prometheus.HistogramInstrumenter.install(SanbaseWeb.Graphql.Schema)
-    SanbaseWeb.Graphql.Prometheus.CounterInstrumenter.install(SanbaseWeb.Graphql.Schema)
+    :ok
   end
 
   @doc ~s"""

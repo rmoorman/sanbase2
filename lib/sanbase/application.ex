@@ -52,11 +52,6 @@ defmodule Sanbase.Application do
     # so it applies to all non-phoenix work, too
     :erlang.system_flag(:backtrace_depth, 20)
 
-    # Prometheus related
-    Sanbase.Prometheus.EctoInstrumenter.setup()
-    Sanbase.Prometheus.PipelineInstrumenter.setup()
-    Sanbase.Prometheus.Exporter.setup()
-
     Sanbase.EventBus.init()
 
     # Container specific init
