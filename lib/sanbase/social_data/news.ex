@@ -4,7 +4,7 @@ defmodule Sanbase.SocialData.News do
   require Mockery.Macro
   defp http_client, do: Mockery.Macro.mockable(HTTPoison)
 
-  require Sanbase.Utils.Config, as: Config
+  alias Sanbase.Utils.Config
 
   @recv_timeout 15_000
 

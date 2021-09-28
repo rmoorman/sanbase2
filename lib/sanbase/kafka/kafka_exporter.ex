@@ -13,9 +13,9 @@ defmodule Sanbase.KafkaExporter do
   use GenServer
 
   require Logger
-  require Sanbase.Utils.Config, as: Config
+  alias Sanbase.Utils.Config
 
-  @producer Config.get(:producer)
+  @producer Config.module_get(__MODULE__, :producer)
 
   @type data :: {String.t(), String.t()}
   @type result :: :ok | {:error, String.t()}

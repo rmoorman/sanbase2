@@ -31,7 +31,7 @@ defmodule Sanbase.Comment do
   alias Sanbase.Chart.Configuration, as: ChartConfiguration
   alias Sanbase.WalletHunters.Proposal, as: WHProposal
 
-  require Sanbase.Utils.Config, as: Config
+  alias Sanbase.Utils.Config
 
   @max_comment_length 15_000
 
@@ -94,9 +94,9 @@ defmodule Sanbase.Comment do
 
   def can_create?(user_id) do
     limits = %{
-      day: Config.get(:creation_limit_day, 50),
-      hour: Config.get(:creation_limit_hour, 20),
-      minute: Config.get(:creation_limit_minute, 3)
+      day: Config.module_get(__MODULE__, :creation_limit_day, 50),
+      hour: Config.module_get(__MODULE__, :creation_limit_hour, 20),
+      minute: Config.module_get(__MODULE__, :creation_limit_minute, 3)
     }
 
     Sanbase.Ecto.Common.can_create?(__MODULE__, user_id,

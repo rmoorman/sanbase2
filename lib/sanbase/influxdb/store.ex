@@ -101,13 +101,13 @@ defmodule Sanbase.Influxdb.Store do
       end
 
       def create_db() do
-        Sanbase.Utils.Config.get(:database)
+        Sanbase.Utils.Config.module_get(__MODULE__, :database)
         |> Instream.Admin.Database.create()
         |> post()
       end
 
       def drop_db() do
-        Sanbase.Utils.Config.get(:database)
+        Sanbase.Utils.Config.module_get(__MODULE__, :database)
         |> Instream.Admin.Database.drop()
         |> post()
       end

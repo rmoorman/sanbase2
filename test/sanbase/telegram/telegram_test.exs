@@ -2,7 +2,7 @@ defmodule Sanbase.TelegramTest do
   use SanbaseWeb.ConnCase, async: false
 
   import SanbaseWeb.Graphql.TestHelpers
-  require Sanbase.Utils.Config, as: Config
+  alias Sanbase.Utils.Config
 
   alias Sanbase.Repo
   alias Sanbase.Accounts.{User, Settings, UserSettings}

@@ -5,7 +5,7 @@ defmodule Sanbase.Intercom do
 
   import Ecto.Query
 
-  require Sanbase.Utils.Config, as: Config
+  alias Sanbase.Utils.Config
   require Logger
 
   alias Sanbase.Accounts.{User, Statistics}
@@ -119,7 +119,7 @@ defmodule Sanbase.Intercom do
   end
 
   def intercom_api_key() do
-    Config.get(:api_key)
+    Config.module_get(__MODULE__, :api_key)
   end
 
   # helpers

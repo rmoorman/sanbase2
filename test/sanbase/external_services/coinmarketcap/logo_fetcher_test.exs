@@ -9,7 +9,7 @@ defmodule Sanbase.ExternalServices.Coinmarketcap.LogoFetcherTest do
   alias Sanbase.ExternalServices.Coinmarketcap.LogoFetcher
   alias Sanbase.Model.{Project, LatestCoinmarketcapData}
 
-  require Sanbase.Utils.Config, as: Config
+  alias Sanbase.Utils.Config
 
   describe "when successful" do
     setup do

@@ -2,7 +2,7 @@ defmodule Sanbase.TechIndicators.PriceVolumeDifference do
   import Sanbase.Utils.ErrorHandling
 
   require Logger
-  require Sanbase.Utils.Config, as: Config
+  alias Sanbase.Utils.Config
 
   alias Sanbase.Model.Project
 

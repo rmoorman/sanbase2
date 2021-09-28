@@ -1,5 +1,5 @@
 defmodule Sanbase.Oauth2.Hydra do
-  require Sanbase.Utils.Config, as: Config
+  alias Sanbase.Utils.Config
   require Logger
 
   alias Sanbase.Accounts.User
@@ -146,9 +146,18 @@ defmodule Sanbase.Oauth2.Hydra do
     end
   end
 
-  defp token_url(), do: Config.get(:base_url) <> Config.get(:token_uri)
-  defp consent_url(), do: Config.get(:base_url) <> Config.get(:consent_uri)
+  defp token_url(),
+    do: Config.module_get(__MODULE__, :base_url) <> Config.module_get(__MODULE__, :token_uri)
+
+  defp consent_url(),
+    do: Config.module_get(__MODULE__, :base_url) <> Config.module_get(__MODULE__, :consent_uri)
 
   defp basic_auth(),
-    do: [hackney: [basic_auth: {Config.get(:client_id), Config.get(:client_secret)}]]
+    do: [
+      hackney: [
+        basic_auth:
+          {Config.module_get(__MODULE__, :client_id),
+           Config.module_get(__MODULE__, :client_secret)}
+      ]
+    ]
 end

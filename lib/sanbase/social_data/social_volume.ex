@@ -6,7 +6,7 @@ defmodule Sanbase.SocialData.SocialVolume do
 
   require Logger
   require Mockery.Macro
-  require Sanbase.Utils.Config, as: Config
+  alias Sanbase.Utils.Config
 
   defp http_client, do: Mockery.Macro.mockable(HTTPoison)
 

@@ -1,5 +1,5 @@
 defmodule SanbaseWeb.Graphql.Resolvers.TechIndicatorsResolver do
-  require Sanbase.Utils.Config, as: Config
+  alias Sanbase.Utils.Config
 
   alias Sanbase.TechIndicators
   alias Sanbase.Model.Project

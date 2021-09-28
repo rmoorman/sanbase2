@@ -3,7 +3,7 @@ defmodule Sanbase.Billing.DiscordNotification do
   alias Sanbase.Notifications.Discord
   alias Sanbase.Billing.{Subscription, Plan, Product}
 
-  require Sanbase.Utils.Config, as: Config
+  alias Sanbase.Utils.Config
 
   def handle_event(
         :payment_success,
@@ -229,7 +229,7 @@ defmodule Sanbase.Billing.DiscordNotification do
     "$" <> Number.Delimit.number_to_delimited(amount / 100, precision: 0)
   end
 
-  defp webhook_url(), do: Config.get(:webhook_url)
+  defp webhook_url(), do: Config.module_get(__MODULE__, :webhook_url)
 
-  defp publish_user(), do: Config.get(:publish_user)
+  defp publish_user(), do: Config.module_get(__MODULE__, :publish_user)
 end

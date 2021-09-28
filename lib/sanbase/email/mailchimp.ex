@@ -1,5 +1,5 @@
 defmodule Sanbase.Email.Mailchimp do
-  require Sanbase.Utils.Config, as: Config
+  alias Sanbase.Utils.Config
   require Logger
 
   alias Sanbase.Accounts.{User, UserSettings, Settings, Statistics}
@@ -153,7 +153,7 @@ defmodule Sanbase.Email.Mailchimp do
   end
 
   defp mailchimp_api_key() do
-    Config.get(:api_key)
+    Config.module_get(__MODULE__, :api_key)
   end
 
   defp weekly_digest_members_url do

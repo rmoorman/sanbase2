@@ -26,7 +26,7 @@ defmodule SanbaseWeb.Graphql.ContextPlug do
             get_origin: 1}
 
   import Plug.Conn
-  require Sanbase.Utils.Config, as: Config
+  alias Sanbase.Utils.Config
 
   alias Sanbase.ApiCallLimit
   alias Sanbase.Accounts.User
@@ -74,7 +74,7 @@ defmodule SanbaseWeb.Graphql.ContextPlug do
       |> Map.put(:origin_url, origin_url)
       |> Map.put(:origin_host, origin_host)
       |> Map.put(:origin_host_parts, origin_host_parts)
-      |> Map.put(:rate_limiting_enabled, Config.get(:rate_limiting_enabled))
+      |> Map.put(:rate_limiting_enabled, Config.module_get(__MODULE__, :rate_limiting_enabled))
       |> Map.put(:device_data, SanbaseWeb.Guardian.device_data(conn))
       |> Map.put(:jwt_tokens, conn_to_jwt_tokens(conn))
       |> Map.delete(:new_access_token)
@@ -456,8 +456,8 @@ defmodule SanbaseWeb.Graphql.ContextPlug do
   end
 
   defp basic_authorize(auth_attempt) do
-    username = Config.get(:basic_auth_username)
-    password = Config.get(:basic_auth_password)
+    username = Config.module_get(__MODULE__, :basic_auth_username)
+    password = Config.module_get(__MODULE__, :basic_auth_password)
 
     Base.encode64(username <> ":" <> password)
     |> case do

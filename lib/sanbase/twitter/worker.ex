@@ -11,7 +11,7 @@ defmodule Sanbase.Twitter.Worker do
   require Logger
 
   import Ecto.Query
-  require Sanbase.Utils.Config, as: Config
+  alias Sanbase.Utils.Config
 
   alias Sanbase.Repo
   alias Sanbase.Model.Project
@@ -28,13 +28,15 @@ defmodule Sanbase.Twitter.Worker do
   def init(:ok) do
     :ok =
       ExTwitter.configure(
-        consumer_key: Config.get(:consumer_key),
-        consumer_secret: Config.get(:consumer_secret)
+        consumer_key: Config.module_get(__MODULE__, :consumer_key),
+        consumer_secret: Config.module_get(__MODULE__, :consumer_secret)
       )
 
-    if Config.get(:sync_enabled, false) do
+    if Config.module_get(__MODULE__, :sync_enabled, false) do
       Store.create_db()
-      update_interval_ms = Config.get(:update_interval, @default_update_interval)
+
+      update_interval_ms =
+        Config.module_get(__MODULE__, :update_interval, @default_update_interval)
 
       GenServer.cast(self(), :sync)
       {:ok, %{update_interval_ms: update_interval_ms}}
