@@ -25,7 +25,7 @@ defmodule Sanbase.SocialData.TrendingWords do
 
   alias Sanbase.ClickhouseRepo
 
-  alias Sanbase.Utils.Config
+  require Sanbase.Utils.ConfigMacro, as: ConfigMacro
 
   @type word :: String.t()
   @type slug :: String.t()
@@ -53,12 +53,12 @@ defmodule Sanbase.SocialData.TrendingWords do
           position: position
         }
 
+  @hours_back_ensure_has_data 3
+
   # When calculating the trending now words fetch the data for the last
   # N hours to ensure that there is some data and we're not in the middle
   # of computing the latest data
-  @hours_back_ensure_has_data 3
-
-  schema Config.module_get(__MODULE__, :trending_words_table) do
+  schema ConfigMacro.module_get(__MODULE__, :trending_words_table) do
     field(:dt, :utc_datetime)
     field(:word, :string)
     field(:volume, :float)

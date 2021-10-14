@@ -24,15 +24,15 @@ defmodule Sanbase.Utils.Config do
     module_get!(module, key) |> Sanbase.Math.to_integer()
   end
 
-  defp parse_config_value({:system, env_key, default}) do
+  def parse_config_value({:system, env_key, default}) do
     System.get_env(env_key) || default
   end
 
-  defp parse_config_value({:system, env_key}) do
+  def parse_config_value({:system, env_key}) do
     System.get_env(env_key)
   end
 
-  defp parse_config_value(value) do
+  def parse_config_value(value) do
     value
   end
 end
