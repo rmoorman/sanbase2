@@ -98,7 +98,6 @@ defmodule Sanbase.Billing.QueryAccessLevelTest do
           :popular_insight_authors,
           :popular_search_terms,
           :post,
-          :price_volume_diff,
           :products_with_plans,
           :project,
           :project_by_slug,

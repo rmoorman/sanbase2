@@ -12,10 +12,6 @@ config :sanbase, Sanbase.Alerts.Scheduler,
   timeout: 30_000,
   overlap: false,
   jobs: [
-    price_volume_difference_sonar_alert: [
-      schedule: "1-59/5 * * * *",
-      task: {Sanbase.Alert.Scheduler, :run_alert, [Trigger.PriceVolumeDifferenceTriggerSettings]}
-    ],
     screener_sonar_alert: [
       schedule: "2-59/5 * * * *",
       task: {Sanbase.Alert.Scheduler, :run_alert, [Trigger.ScreenerTriggerSettings]}
