@@ -779,7 +779,16 @@ defmodule Sanbase.Billing.MetricAccessLevelTest do
         "deribit_perpetual_funding_rate",
         "sentiment_volume_consumed_total_change_1d",
         "sentiment_volume_consumed_total_change_7d",
-        "sentiment_volume_consumed_total_change_30d"
+        "sentiment_volume_consumed_total_change_30d",
+        # binance oi/ov metrics
+        "usdt_bnb_open_interest",
+        "usdt_binance_open_interest",
+        "usdt_bnb_open_value",
+        "usdt_binance_open_value",
+        "busd_bnb_open_interest",
+        "busd_binance_open_interest",
+        "busd_bnb_open_value",
+        "busd_binance_open_value"
       ]
       |> Enum.sort()
 
